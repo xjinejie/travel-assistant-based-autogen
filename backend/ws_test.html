@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <title>WebSocket 测试大屏幕</title>
+    <style>
+        body {
+            font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", sans-serif;
+            padding: 20px;
+            background:
+                radial-gradient(circle at top right, rgba(122, 162, 247, 0.14), transparent 28%),
+                radial-gradient(circle at top left, rgba(224, 175, 104, 0.08), transparent 22%),
+                #171a25;
+            color: #a9b1d6;
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        .form-container {
+            flex: 0 0 340px;
+            background: linear-gradient(180deg, #282d43 0%, #21253a 100%);
+            border: 1px solid #343c59;
+            box-shadow: 0 18px 42px rgba(7, 10, 18, 0.42);
+            padding: 20px;
+            border-radius: 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .main-chat-panel,
+        .log-panel {
+            background: linear-gradient(180deg, #282d43 0%, #21253a 100%);
+            border: 1px solid #343c59;
+            box-shadow: 0 18px 42px rgba(7, 10, 18, 0.42);
+            border-radius: 18px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .main-chat-panel {
+            flex: 1;
+            padding: 0;
+        }
+
+        #messages {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            border: 1px solid #39405d;
+            padding: 14px;
+            border-radius: 14px;
+            background: #171b27;
+            margin-top: 12px;
+        }
+
+        #messages p {
+            margin-bottom: 10px;
+            background: #22273a;
+            padding: 10px 12px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .tool_call {
+            color: #f7768e;
+        }
+
+        .info {
+            color: #7aa2f7;
+            font-size: 0.85em;
+        }
+
+        .message {
+            color: #e0af68;
+            border-left: 4px solid #9ece6a;
+        }
+
+        .error {
+            color: #f7768e;
+            border-left: 4px solid #f7768e;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #414868;
+            background: #1a1b26;
+            color: #a9b1d6;
+            box-sizing: border-box;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        .checkbox-group label {
+            display: inline-flex;
+            align-items: center;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .checkbox-group input {
+            margin-right: 5px;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #7aa2f7;
+            color: #1a1b26;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #9ece6a;
+        }
+
+        button:disabled {
+            background: #565f89;
+            color: #c0caf5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #e0af68;
+            color: #1a1b26;
+        }
+
+        button.secondary:hover {
+            background: #ff9e64;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #414868;
+            padding-bottom: 10px;
+            color: #7dcfff;
+        }
+
+        /* Flatpickr 黑暗主题适配 */
+        .flatpickr-calendar {
+            background: #24283b !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+            border: 1px solid #414868 !important;
+        }
+
+        .flatpickr-day {
+            color: #a9b1d6 !important;
+        }
+
+        .flatpickr-day.selected {
+            background: #7aa2f7 !important;
+            border-color: #7aa2f7 !important;
+            color: #1a1b26 !important;
+        }
+
+        .flatpickr-day:hover {
+            background: #414868 !important;
+        }
+
+        .flatpickr-months .flatpickr-month {
+            color: #a9b1d6 !important;
+            fill: #a9b1d6 !important;
+        }
+
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: #24283b !important;
+        }
+
+        .flatpickr-current-month input.cur-year {
+            color: #a9b1d6 !important;
+        }
+
+        span.flatpickr-weekday {
+            color: #7dcfff !important;
+        }
+
+        .status-panel,
+        .feedback-panel {
+            background: #1f2335;
+            border: 1px solid #414868;
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        .status-panel {
+            margin-top: 0;
+        }
+
+        .feedback-panel {
+            flex: 1;
+            min-height: 0;
+            margin-top: 0;
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+            border: none;
+            padding: 0;
+            gap: 14px;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #7dcfff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+
+        .status-value {
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .status-value strong {
+            color: #9ece6a;
+        }
+
+        .helper-text {
+            font-size: 13px;
+            color: #9aa5ce;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        .chat-app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid #353d5a;
+            background:
+                radial-gradient(circle at top right, rgba(122, 162, 247, 0.14), transparent 30%),
+                linear-gradient(180deg, rgba(45, 52, 78, 0.95) 0%, rgba(36, 41, 61, 0.98) 100%);
+        }
+
+        .chat-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .chat-user-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #7aa2f7 0%, #2ac3de 100%);
+            color: #121826;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            box-shadow: 0 14px 30px rgba(28, 53, 102, 0.35);
+            flex-shrink: 0;
+        }
+
+        .chat-user-copy {
+            min-width: 0;
+        }
+
+        .chat-user-tag {
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #8ac7ff;
+            margin-bottom: 6px;
+        }
+
+        .chat-user-copy h2 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.12;
+            color: #eef4ff;
+        }
+
+        .chat-user-copy p {
+            margin: 8px 0 0;
+            color: #9ea9cf;
+            line-height: 1.6;
+            font-size: 14px;
+            max-width: 760px;
+        }
+
+        .chat-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .chat-status-chip {
+            flex-shrink: 0;
+            min-width: 128px;
+            padding: 12px 16px;
+            border-radius: 999px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            border: 1px solid #414868;
+            background: rgba(26, 27, 38, 0.7);
+            color: #c0caf5;
+        }
+
+        .chat-status-chip.idle {
+            color: #aeb8dd;
+        }
+
+        .chat-status-chip.planning {
+            color: #7dcfff;
+            border-color: rgba(125, 207, 255, 0.32);
+            background: rgba(125, 207, 255, 0.1);
+        }
+
+        .chat-status-chip.awaiting_feedback {
+            color: #9ece6a;
+            border-color: rgba(158, 206, 106, 0.32);
+            background: rgba(158, 206, 106, 0.12);
+        }
+
+        .chat-status-chip.terminated {
+            color: #e0af68;
+            border-color: rgba(224, 175, 104, 0.34);
+            background: rgba(224, 175, 104, 0.12);
+        }
+
+        .chat-status-chip.error {
+            color: #f7768e;
+            border-color: rgba(247, 118, 142, 0.34);
+            background: rgba(247, 118, 142, 0.12);
+        }
+
+        button.header-action {
+            width: auto;
+            min-width: 132px;
+            margin-top: 0;
+            padding: 12px 16px;
+            border-radius: 999px;
+            background: rgba(24, 28, 41, 0.88);
+            color: #d8e4ff;
+            border: 1px solid #414b73;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        button.header-action:hover {
+            background: rgba(35, 41, 61, 0.96);
+            border-color: #5f6ea8;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .button-row button {
+            width: auto;
+            flex: 1;
+            min-width: 160px;
+            margin-top: 0;
+        }
+
+        .feedback-thread {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 20px 22px;
+            border-radius: 0;
+            background:
+                radial-gradient(circle at top, rgba(122, 162, 247, 0.08), transparent 38%),
+                linear-gradient(180deg, #171b28 0%, #151925 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+        }
+
+        .thread-divider {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 18px;
+        }
+
+        .thread-divider span {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 999px;
+            background: rgba(39, 45, 67, 0.92);
+            border: 1px solid #353d5a;
+            color: #96a1c6;
+            font-size: 12px;
+            padding: 8px 14px;
+        }
+
+        .thread-divider span::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #7aa2f7;
+        }
+
+        .feedback-empty {
+            color: #8b97bd;
+            font-size: 14px;
+            line-height: 1.8;
+            padding: 28px 22px;
+            text-align: center;
+            min-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            border: 1px dashed #323a58;
+            background: rgba(24, 28, 41, 0.5);
+        }
+
+        .thread-system-card {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(35, 41, 61, 0.92);
+            border: 1px solid #353d5a;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .thread-system-copy {
+            min-width: 0;
+        }
+
+        .thread-system-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #edf3ff;
+        }
+
+        .thread-system-subtitle {
+            margin-top: 4px;
+            font-size: 12.5px;
+            color: #8c97bf;
+        }
+
+        .thread-hint {
+            max-width: 380px;
+            text-align: right;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #a7b2d7;
+        }
+
+        .chat-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .chat-row.agent {
+            justify-content: flex-start;
+        }
+
+        .chat-row.user {
+            justify-content: flex-end;
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+        }
+
+        .chat-avatar.agent {
+            background: linear-gradient(135deg, #7aa2f7 0%, #2ac3de 100%);
+            color: #111827;
+        }
+
+        .chat-avatar.user {
+            background: linear-gradient(135deg, #e0af68 0%, #ff9e64 100%);
+            color: #111827;
+        }
+
+        .chat-row.user .chat-bubble {
+            order: 1;
+        }
+
+        .chat-row.user .chat-avatar {
+            order: 2;
+        }
+
+        .chat-bubble {
+            max-width: min(78%, 760px);
+            border-radius: 20px;
+            padding: 14px 16px;
+            white-space: pre-wrap;
+            line-height: 1.68;
+            word-break: break-word;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            border: 1px solid transparent;
+        }
+
+        .chat-row.agent .chat-bubble {
+            background: linear-gradient(180deg, #2e3553 0%, #262d47 100%);
+            border-top-left-radius: 6px;
+            border-color: #414b73;
+            color: #dbe6ff;
+        }
+
+        .chat-row.user .chat-bubble {
+            background: linear-gradient(180deg, #a8d7ff 0%, #7aa2f7 100%);
+            border-top-right-radius: 6px;
+            border-color: rgba(122, 162, 247, 0.3);
+            color: #111827;
+        }
+
+        .bubble-meta {
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+            opacity: 0.78;
+        }
+
+        .bubble-body {
+            font-size: 14px;
+        }
+
+        .composer {
+            flex-shrink: 0;
+            border-top: 1px solid #353d5a;
+            background: linear-gradient(180deg, rgba(24, 28, 41, 0.94) 0%, rgba(19, 23, 34, 0.94) 100%);
+            padding: 16px 22px 18px;
+        }
+
+        .composer-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 10px;
+        }
+
+        .composer-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #eef4ff;
+        }
+
+        .composer-tip {
+            font-size: 12px;
+            color: #8f9ac1;
+        }
+
+        #feedback_input {
+            min-height: 110px;
+            border-radius: 14px;
+            padding: 12px 14px;
+            border-color: #3a4262;
+            background: #171b28;
+            resize: vertical;
+        }
+
+        #feedback_input:focus {
+            outline: none;
+            border-color: #7aa2f7;
+            box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.14);
+        }
+
+        .sidebar-log-panel {
+            padding: 16px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-log-panel h2 {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .sidebar-log-panel p {
+            color: #9aa5ce;
+            margin-top: 0;
+            margin-bottom: 0;
+            line-height: 1.6;
+            font-size: 13px;
+        }
+
+        .sidebar-log-panel #messages {
+            min-height: 240px;
+            max-height: 320px;
+        }
+    </style>
+    <!-- 引入 Flatpickr 日历组件 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/zh.js"></script>
+</head>
+
+<body>
+    <div class="form-container">
+        <h3>📝 详细旅行需求表单</h3>
+        <div class="form-group">
+            <label>* 目的地</label>
+            <input type="text" id="destination" placeholder="如：北京、日本东京、云南大理" required>
+        </div>
+        <div class="form-group">
+            <label>出发城市</label>
+            <input type="text" id="departure_city" placeholder="如：上海、广州">
+        </div>
+
+        <div class="form-group">
+            <label>出发日期</label>
+            <input type="text" id="start_date" placeholder="选择出发日期">
+        </div>
+        <div class="form-group">
+            <label>返回日期</label>
+            <input type="text" id="end_date" placeholder="选择返回日期">
+        </div>
+        <div class="form-group checkbox-group">
+            <label><input type="checkbox" id="flexible_dates"> 日期灵活可调</label>
+        </div>
+
+        <div class="form-group">
+            <label>总出行人数</label>
+            <input type="number" id="travelers_count" value="1" min="1" max="20">
+        </div>
+        <div class="form-group checkbox-group">
+            <label><input type="checkbox" id="has_children"> 有儿童同行 (12岁以下)</label>
+            <label><input type="checkbox" id="has_elderly"> 有老人同行 (65岁以上)</label>
+        </div>
+
+        <div class="form-group">
+            <label>预算级别</label>
+            <select id="budget_level">
+                <option value="经济">经济</option>
+                <option value="中等" selected>中等</option>
+                <option value="高端">高端</option>
+                <option value="豪华">豪华</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>住宿偏好</label>
+            <select id="accommodation_preference">
+                <option value="青旅">青旅</option>
+                <option value="民宿">民宿</option>
+                <option value="酒店" selected>酒店</option>
+                <option value="高端酒店">高端酒店</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>交通偏好</label>
+            <select id="transport_preference">
+                <option value="公共交通" selected>公共交通</option>
+                <option value="自驾">自驾</option>
+                <option value="打车">打车</option>
+                <option value="混合">混合</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>旅行风格 (多选)</label>
+            <div class="checkbox-group" id="travel_styles">
+                <label><input type="checkbox" value="文化历史">文化历史</label>
+                <label><input type="checkbox" value="自然风景">自然风景</label>
+                <label><input type="checkbox" value="美食探索">美食探索</label>
+                <label><input type="checkbox" value="购物">购物</label>
+                <label><input type="checkbox" value="休闲度假">休闲度假</label>
+                <label><input type="checkbox" value="冒险运动">冒险运动</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>饮食限制</label>
+            <input type="text" id="dietary_restrictions" placeholder="如：素食、必须清真、海鲜过敏...">
+        </div>
+
+        <div class="form-group">
+            <label>补充说明</label>
+            <textarea id="additional_notes" rows="3" placeholder="如：想看第一缕日出、需要无障碍设施、尽量少走路..."></textarea>
+        </div>
+
+        <button onclick="startPlan()">🚀 提交需求并开始规划</button>
+
+        <div class="status-panel">
+            <div class="status-label">当前会话状态</div>
+            <div class="status-value" id="session_status">
+                <strong>未开始</strong><br>
+                先提交左侧旅行需求，等 Reviewer 审核通过后即可继续输入反馈。
+            </div>
+        </div>
+
+        <div class="log-panel sidebar-log-panel">
+            <h2>🧾 Agent 日志</h2>
+            <p>这里保留执行轨迹，便于调试。日志已移动到左侧，右边主区域完整留给方案对话。</p>
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="main-chat-panel">
+            <div class="chat-app-header">
+                <div class="chat-user">
+                    <div class="chat-user-avatar">AI</div>
+                    <div class="chat-user-copy">
+                        <div class="chat-user-tag">Travel Plan Conversation</div>
+                        <h2>方案对话</h2>
+                        <p>围绕当前旅行计划继续补充、删改、确认。每一轮通过审核的方案都会沉淀成聊天记录，方便连续反馈。</p>
+                    </div>
+                </div>
+                <div class="chat-header-actions">
+                    <button class="header-action" onclick="startNewSession()">＋ 新建会话</button>
+                    <div class="chat-status-chip idle" id="chat_status_badge">未开始</div>
+                </div>
+            </div>
+            <div class="feedback-panel" id="feedback_panel">
+                <div class="feedback-thread" id="feedback_thread">
+                    <div class="thread-divider">
+                        <span>当前会话</span>
+                    </div>
+                    <div class="thread-system-card">
+                        <div class="thread-system-copy">
+                            <div class="thread-system-title">当前可反馈方案</div>
+                            <div class="thread-system-subtitle">Planner 的最终方案会以聊天气泡展示在这里</div>
+                        </div>
+                        <div class="thread-hint" id="thread_hint">
+                            提交左侧旅行需求后，首版旅行计划会出现在这里。
+                        </div>
+                    </div>
+                    <div class="feedback-empty" id="feedback_empty">
+                        Agent 最终可反馈的旅行计划会显示在这里。<br>
+                        你可以像聊天一样继续补充修改意见。
+                    </div>
+                </div>
+                <div class="composer">
+                    <div class="composer-top">
+                        <label class="composer-label" for="feedback_input">继续反馈</label>
+                        <div class="composer-tip">也可以直接确认当前方案，不再修改</div>
+                    </div>
+                    <textarea id="feedback_input" rows="4" placeholder="例如：保留 Day 1，但住宿改成民宿；或者：我同意当前方案，无需修改。" disabled></textarea>
+                    <div class="button-row">
+                        <button id="feedback_button" onclick="submitFeedback()" disabled>🛠️ 提交反馈并继续改稿</button>
+                        <button class="secondary" id="accept_button" onclick="acceptPlan()" disabled>✅ 直接确认当前方案</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var activeSocket = null;
+        var conversationStatus = "idle";
+        var currentRound = 0;
+        var latestPlannerReply = "";
+        var latestReviewerReply = "";
+        // 当前页面绑定的会话 ID。
+        // 设计目标是“一个浏览器标签页 = 一条独立会话链路”：
+        // - 首轮规划时把它发给后端，后端据此创建独立的 TravelAssistantService 实例。
+        // - 后续反馈继续沿用同一个 session_id，这样才能回到同一条 Swarm 历史消息链上。
+        // - 点击“新建会话”时，会重新生成一个新的 session_id，表示开启一条全新的独立线程。
+        var currentSessionId = generateSessionId();
+        var TEST_DEFAULTS = {
+            destination: "北京",
+            departure_city: "上海",
+            start_date: "today",
+            end_date_offset_days: 2,
+            flexible_dates: false,
+            travelers_count: 2,
+            has_children: false,
+            has_elderly: false,
+            budget_level: "中等",
+            accommodation_preference: "酒店",
+            transport_preference: "公共交通",
+            travel_styles: ["文化历史", "美食探索"],
+            dietary_restrictions: "",
+            additional_notes: "希望节奏适中，少走回头路，优先安排经典景点和当地特色餐厅。"
+        };
+
+        function generateSessionId() {
+            // 优先使用浏览器原生 UUID 生成器，保证不同标签页得到足够随机且不重复的会话标识。
+            // 如果运行环境较旧不支持 crypto.randomUUID，则退化为“时间戳 + 随机字符串”的方案，
+            // 以便测试页仍能在大多数浏览器中正常工作。
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+
+            return "session-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+        }
+
+        function getWebSocketBaseUrl() {
+            // 页面现在由后端通过 HTTP/HTTPS 直接提供，因此浏览器已经知道“当前网页是从哪个 host 打开的”。
+            // 这里不再把 WebSocket 地址写死成 127.0.0.1，而是动态复用当前页面所在的 host：
+            // - 如果页面是 http://192.168.1.23:8000/ 打开的，这里会得到 ws://192.168.1.23:8000
+            // - 如果以后挂在 https 域名下，这里会自动切换成更安全的 wss://
+            // 这样别人只要访问你的网页地址，页面内部就会自动连回同一台服务器。
+            var wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            return wsProtocol + "//" + window.location.host;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // 初始化出发行程日历
+            flatpickr("#start_date", {
+                locale: "zh",
+                defaultDate: TEST_DEFAULTS.start_date,
+                minDate: "today",
+                dateFormat: "Y-m-d"
+            });
+
+            // 初始化返回行程日历
+            flatpickr("#end_date", {
+                locale: "zh",
+                defaultDate: new Date(Date.now() + TEST_DEFAULTS.end_date_offset_days * 24 * 60 * 60 * 1000),
+                minDate: "today",
+                dateFormat: "Y-m-d"
+            });
+
+            applyDefaultTestValues();
+            updateSessionStatus("未开始", "先提交旅行需求，生成首版方案。", "idle");
+            setFeedbackEnabled(false);
+            appendMsg("🧭 当前测试会话 session_id: " + currentSessionId, "info");
+            appendMsg("🌐 当前页面访问地址: " + window.location.origin, "info");
+        });
+
+        function applyDefaultTestValues() {
+            document.getElementById('destination').value = TEST_DEFAULTS.destination;
+            document.getElementById('departure_city').value = TEST_DEFAULTS.departure_city;
+            document.getElementById('flexible_dates').checked = TEST_DEFAULTS.flexible_dates;
+            document.getElementById('travelers_count').value = TEST_DEFAULTS.travelers_count;
+            document.getElementById('has_children').checked = TEST_DEFAULTS.has_children;
+            document.getElementById('has_elderly').checked = TEST_DEFAULTS.has_elderly;
+            document.getElementById('budget_level').value = TEST_DEFAULTS.budget_level;
+            document.getElementById('accommodation_preference').value = TEST_DEFAULTS.accommodation_preference;
+            document.getElementById('transport_preference').value = TEST_DEFAULTS.transport_preference;
+            document.getElementById('dietary_restrictions').value = TEST_DEFAULTS.dietary_restrictions;
+            document.getElementById('additional_notes').value = TEST_DEFAULTS.additional_notes;
+
+            document.querySelectorAll('#travel_styles input').forEach(function (checkbox) {
+                checkbox.checked = TEST_DEFAULTS.travel_styles.indexOf(checkbox.value) !== -1;
+            });
+        }
+
+        function updateSessionStatus(title, detail, state) {
+            var box = document.getElementById('session_status');
+            box.innerHTML = "<strong>" + title + "</strong><br>" + detail;
+            updateChatStatusBadge(title, state || conversationStatus || "idle");
+            updateThreadHint(detail);
+        }
+
+        function updateChatStatusBadge(label, state) {
+            var badge = document.getElementById('chat_status_badge');
+            badge.className = 'chat-status-chip ' + (state || 'idle');
+            badge.innerText = label;
+        }
+
+        function updateThreadHint(text) {
+            document.getElementById('thread_hint').innerText = text;
+        }
+
+        function setFeedbackEnabled(enabled) {
+            document.getElementById('feedback_input').disabled = !enabled;
+            document.getElementById('feedback_button').disabled = !enabled;
+            document.getElementById('accept_button').disabled = !enabled;
+        }
+
+        function setPlanButtonDisabled(disabled) {
+            var planButton = document.querySelector('button[onclick="startPlan()"]');
+            planButton.disabled = disabled;
+        }
+
+        function appendMsg(text, typeClass) {
+            var box = document.getElementById('messages');
+            var p = document.createElement('p');
+            p.className = typeClass;
+            p.innerText = text;
+            box.appendChild(p);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function appendRoundHeader(title) {
+            appendMsg("━━━━━━━━━━━━━━━━━━\n" + title + "\n━━━━━━━━━━━━━━━━━━", "info");
+        }
+
+        function getThreadScaffoldHTML() {
+            return '' +
+                '<div class="thread-divider"><span>当前会话</span></div>' +
+                '<div class="thread-system-card">' +
+                    '<div class="thread-system-copy">' +
+                        '<div class="thread-system-title">当前可反馈方案</div>' +
+                        '<div class="thread-system-subtitle">Planner 的最终方案会以聊天气泡展示在这里</div>' +
+                    '</div>' +
+                    '<div class="thread-hint" id="thread_hint">提交左侧旅行需求后，首版旅行计划会出现在这里。</div>' +
+                '</div>' +
+                '<div class="feedback-empty" id="feedback_empty">Agent 最终可反馈的旅行计划会显示在这里。<br>你可以像聊天一样继续补充修改意见。</div>';
+        }
+
+        function resetFeedbackThread() {
+            document.getElementById('feedback_thread').innerHTML = getThreadScaffoldHTML();
+            updateThreadHint("提交左侧旅行需求后，首版旅行计划会出现在这里。");
+        }
+
+        function startNewSession() {
+            closeActiveSocket();
+            conversationStatus = "idle";
+            currentRound = 0;
+            latestPlannerReply = "";
+            latestReviewerReply = "";
+            // 这里显式重建新的 session_id，代表“彻底开启一条新的会话链路”。
+            // 否则即使前端界面清空了，后端仍会把新的规划请求视为旧会话的延续。
+            currentSessionId = generateSessionId();
+
+            document.getElementById('messages').innerHTML = "";
+            document.getElementById('feedback_input').value = "";
+            resetFeedbackThread();
+            setFeedbackEnabled(false);
+            setPlanButtonDisabled(false);
+            updateSessionStatus("未开始", "已新建会话。你可以保留或修改左侧需求后重新提交规划。", "idle");
+
+            appendMsg("🆕 已新建会话，旧的聊天记录与日志已清空。新的 session_id: " + currentSessionId, "info");
+        }
+
+        function appendFeedbackBubble(role, meta, content) {
+            var thread = document.getElementById('feedback_thread');
+            var empty = document.getElementById('feedback_empty');
+            if (empty) {
+                empty.remove();
+            }
+
+            var row = document.createElement('div');
+            row.className = 'chat-row ' + role;
+
+            var avatar = document.createElement('div');
+            avatar.className = 'chat-avatar ' + role;
+            avatar.innerText = role === 'agent' ? 'AI' : 'YOU';
+
+            var bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+
+            var metaNode = document.createElement('div');
+            metaNode.className = 'bubble-meta';
+            metaNode.innerText = meta;
+
+            var bodyNode = document.createElement('div');
+            bodyNode.className = 'bubble-body';
+            bodyNode.innerText = content;
+
+            bubble.appendChild(metaNode);
+            bubble.appendChild(bodyNode);
+            row.appendChild(avatar);
+            row.appendChild(bubble);
+            thread.appendChild(row);
+            thread.scrollTop = thread.scrollHeight;
+        }
+
+        function cleanReviewerMessage(content) {
+            return content
+                .split("\n")
+                .filter(function (line) {
+                    return line.trim() !== "TERMINATE";
+                })
+                .join("\n")
+                .trim();
+        }
+
+        function closeActiveSocket() {
+            if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+                activeSocket.close();
+            }
+            activeSocket = null;
+        }
+
+        function buildTravelRequest() {
+            var destination = document.getElementById('destination').value.trim();
+            if (!destination) {
+                alert("请输入目的地！");
+                return null;
+            }
+
+            var styles = [];
+            document.querySelectorAll('#travel_styles input:checked').forEach(function (cb) {
+                styles.push(cb.value);
+            });
+
+            return {
+                // 首轮规划时显式携带当前页面的 session_id。
+                // 后端会基于这个 ID 为当前页面锁定独立的 TravelAssistantService 实例。
+                session_id: currentSessionId,
+                destination: destination,
+                departure_city: document.getElementById('departure_city').value.trim() || null,
+                start_date: document.getElementById('start_date').value || null,
+                end_date: document.getElementById('end_date').value || null,
+                flexible_dates: document.getElementById('flexible_dates').checked,
+                travelers_count: parseInt(document.getElementById('travelers_count').value, 10) || 1,
+                has_children: document.getElementById('has_children').checked,
+                has_elderly: document.getElementById('has_elderly').checked,
+                budget_level: document.getElementById('budget_level').value,
+                travel_styles: styles,
+                accommodation_preference: document.getElementById('accommodation_preference').value,
+                transport_preference: document.getElementById('transport_preference').value,
+                dietary_restrictions: document.getElementById('dietary_restrictions').value.trim() || null,
+                additional_notes: document.getElementById('additional_notes').value.trim() || null
+            };
+        }
+
+        function runSocket(url, payload, options) {
+            options = options || {};
+            closeActiveSocket();
+            activeSocket = new WebSocket(url);
+            setPlanButtonDisabled(true);
+            setFeedbackEnabled(false);
+            latestPlannerReply = "";
+            latestReviewerReply = "";
+
+            activeSocket.onopen = function () {
+                activeSocket.send(JSON.stringify(payload));
+
+                if (options.onOpenMessage) {
+                    appendMsg(options.onOpenMessage, "info");
+                }
+
+                if (options.debugPayload) {
+                    appendMsg("📄 提交内容：\n" + JSON.stringify(payload, null, 2), "info");
+                }
+            };
+
+            activeSocket.onmessage = function (event) {
+                var data = JSON.parse(event.data);
+
+                // 后端在首轮规划时允许自动生成 session_id。
+                // 因此前端每次收到服务端返回时，都用服务端回传值覆盖本地 currentSessionId，
+                // 这样可以兼容“前端先不传、后端帮忙补”的场景，并确保后续反馈使用的是最终生效的会话 ID。
+                if (data.session_id) {
+                    currentSessionId = data.session_id;
+                }
+
+                if (data.type === "done") {
+                    conversationStatus = data.conversation_status || "terminated";
+                    appendMsg("🏁 " + data.content, "message");
+
+                    if (conversationStatus === "awaiting_feedback") {
+                        if (latestPlannerReply) {
+                            appendFeedbackBubble("agent", "Travel Agent · 第 " + currentRound + " 轮方案", latestPlannerReply);
+                        }
+                        updateSessionStatus("等待用户反馈", "当前方案已通过 Reviewer 审核。你可以直接确认，也可以继续补充修改意见。", "awaiting_feedback");
+                        setFeedbackEnabled(true);
+                    } else {
+                        var reviewerDisplay = cleanReviewerMessage(latestReviewerReply);
+                        if (reviewerDisplay) {
+                            appendFeedbackBubble("agent", "Reviewer · 对话结束", reviewerDisplay);
+                        }
+                        updateSessionStatus("已终止", "Reviewer 已输出 TERMINATE，本轮对话完成。若要重新规划，请重新提交左侧表单。", "terminated");
+                        setFeedbackEnabled(false);
+                    }
+
+                    setPlanButtonDisabled(false);
+                    activeSocket.close();
+                    return;
+                }
+
+                if (data.type === "error") {
+                    appendMsg("❌ " + data.content, "error");
+                    updateSessionStatus("发生错误", "请检查输入内容或后端运行日志。", "error");
+                    setPlanButtonDisabled(false);
+                    setFeedbackEnabled(conversationStatus === "awaiting_feedback");
+                    activeSocket.close();
+                    return;
+                }
+
+                appendMsg("[" + data.source + "] " + data.content, data.type || "info");
+
+                if (data.type === "message" && data.source === "Agent_Planner") {
+                    latestPlannerReply = data.content;
+                }
+
+                if (data.type === "message" && data.source === "Agent_Reviewer") {
+                    latestReviewerReply = data.content;
+                }
+            };
+
+            activeSocket.onerror = function () {
+                appendMsg("❌ WebSocket 连接失败，请确认后端服务已启动。", "error");
+                updateSessionStatus("连接失败", "请确认当前页面所在地址 " + window.location.host + " 可访问。", "error");
+                setPlanButtonDisabled(false);
+                setFeedbackEnabled(conversationStatus === "awaiting_feedback");
+            };
+
+            activeSocket.onclose = function () {
+                activeSocket = null;
+            };
+        }
+
+        function startPlan() {
+            var requestData = buildTravelRequest();
+            if (!requestData) {
+                return;
+            }
+
+            currentRound = 1;
+            conversationStatus = "planning";
+            latestPlannerReply = "";
+            latestReviewerReply = "";
+            document.getElementById('messages').innerHTML = "";
+            document.getElementById('feedback_input').value = "";
+            resetFeedbackThread();
+
+            appendRoundHeader("第 1 轮：生成首版旅行方案");
+            updateSessionStatus("规划中", "Planner 正在生成首版方案，Reviewer 随后会审核并决定是否交还用户。", "planning");
+
+            // 这里通过当前页面地址动态计算 WebSocket 入口。
+            // 用户访问哪个域名或 IP，前端就回连哪个域名或 IP，不再依赖本机 127.0.0.1。
+            runSocket(getWebSocketBaseUrl() + "/ws/plan", requestData, {
+                onOpenMessage: "✅ 已连接系统，正在发送结构化旅行需求。session_id=" + currentSessionId,
+                debugPayload: true
+            });
+        }
+
+        function submitFeedback() {
+            var feedback = document.getElementById('feedback_input').value.trim();
+            if (!feedback) {
+                alert("请输入反馈内容！");
+                return;
+            }
+
+            if (conversationStatus !== "awaiting_feedback") {
+                alert("当前还不能提交反馈，请先完成首轮方案生成并等待 Reviewer 交回 user。");
+                return;
+            }
+
+            currentRound += 1;
+            appendRoundHeader("第 " + currentRound + " 轮：提交用户反馈并继续改稿");
+            appendMsg("[user] " + feedback, "message");
+            appendFeedbackBubble("user", "You · 第 " + currentRound + " 轮反馈", feedback);
+            updateSessionStatus("反馈处理中", "反馈已交给 Reviewer，正在判断是否需要继续修改计划。", "planning");
+            document.getElementById('feedback_input').value = "";
+
+            // 反馈接口也必须使用同一套动态地址推导逻辑。
+            // 这样无论页面是通过 localhost、局域网 IP，还是未来的正式域名访问，
+            // 反馈请求都会自动回到同一台提供页面的服务器。
+            runSocket(getWebSocketBaseUrl() + "/ws/plan/feedback", {
+                // 反馈必须带上与首轮规划相同的 session_id。
+                // 如果这里漏掉或换成别的值，后端就无法找到原来的 Agent 会话上下文。
+                session_id: currentSessionId,
+                feedback: feedback
+            }, {
+                onOpenMessage: "✅ 已发送用户反馈，正在进入 Reviewer 判断流程。session_id=" + currentSessionId,
+                debugPayload: false
+            });
+        }
+
+        function acceptPlan() {
+            document.getElementById('feedback_input').value = "我同意当前方案，无需修改，请结束本轮。";
+            submitFeedback();
+        }
+    </script>
+</body>
+
+</html>

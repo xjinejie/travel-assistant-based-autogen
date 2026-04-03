@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  --font-display: 'Sora', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  --canvas-base: #f4eee4;
+  --canvas-wash: #eef5ff;
+  --canvas-amber: rgba(238, 195, 116, 0.18);
+  --canvas-cyan: rgba(67, 155, 228, 0.16);
+  --shell-border: rgba(185, 201, 228, 0.75);
+  --shell-shadow: 0 24px 60px rgba(86, 109, 146, 0.14);
+
+  --text-primary: #1d314c;
+  --text-secondary: #576f92;
+  --text-tertiary: #7d90ad;
+  --accent-strong: #1c6dbc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at top left, var(--canvas-cyan), transparent 28%),
+    radial-gradient(circle at 82% 14%, rgba(255, 255, 255, 0.92), transparent 24%),
+    radial-gradient(circle at 24% 88%, var(--canvas-amber), transparent 22%),
+    linear-gradient(135deg, var(--canvas-base) 0%, var(--canvas-wash) 58%, #f8fbff 100%);
+  background-attachment: fixed;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+code {
+  font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.92em;
+  padding: 0.16em 0.38em;
+  border-radius: 0.55em;
+  background: rgba(227, 236, 248, 0.82);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  background: rgba(98, 120, 156, 0.22);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(98, 120, 156, 0.34);
+}
