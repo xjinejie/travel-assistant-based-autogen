@@ -92,4 +92,6 @@ npm create vite@latest frontend -- --template react
 cd frontend
 npm install
 ```
+7. .env 配置
+需要配置DEEPSEEK_MODEL_NAME;DEEPSEEK_API_KEY;DEEPSEEK_BASE_URL;AMAP_MAPS_API_KEY(高德地图web服务API Key)
 
