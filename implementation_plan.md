@@ -58,22 +58,38 @@
    - 增加**平滑微动画**（元素进入动画、平滑滚动、发送按钮过渡特效等）。
    - 引入 Markdown 渲染库（例如 `react-markdown`），精准渲染旅行行程。
 
-### 阶段五：工程化与拓展功能（后续进阶）
+### 阶段五：工程化与拓展功能（后续更新方向）
 加入真实应用特有的复杂功能，提升完成度。
 1. **持久化存储**：集成 SQLite 保存用户的历史旅游规划。
 2. **可视化增强**：结合高德地图前端 API (JS API)，在对话框旁甚至背景里动态展示路线！
 
----
+### 环境配置：
+1. 安装 uv
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+2. clone autogen
+```shell
+git clone https://github.com/microsoft/autogen.git
+cd autogen/python
+```
 
-## 🙋‍♂️ 用户确认 (User Review Required)
+3. 安装依赖
+```shell
+uv sync --all-extras
+```
+4. 激活环境
+```shell
+source .venv/bin/activate
+```
+5. 安装后端依赖
+```shell
+pip install fastapi uvicorn
+```
+6. 前端环境配置
+```shell
+npm create vite@latest frontend -- --template react
+cd frontend
+npm install
+```
 
-> [!IMPORTANT]
-> 在我们开始写代码之前，请确认以下几点：
-> 
-> 1. **技术方案**：后端用 **FastAPI**，前端用 **React(Vite) + 原生 CSS 高级样式**。这套方案符合你心目中的技术栈和学习目标吗？
-> 2. **执行切入点**：你希望我们第一步先跑通什么？
->    - **选项 A：立刻从后端起步**（教你写一段 FastAPI 代码，用接口触发当前脚本里的旅行规划师）
->    - **选项 B：立刻从前端起步**（教你建一个漂漂亮亮的 React 聊天 UI 开发页）
->    - **选项 C：其他你更关注的点**
-
-请告诉我你的想法，我们随时可以开始！
