@@ -76,6 +76,29 @@ function buildWebSocketUrl(pathname) {
   return httpUrl.toString();
 }
 
+function releaseSessionSilently(sessionId) {
+  const trimmedSessionId = (sessionId || '').trim();
+  if (!trimmedSessionId) {
+    return;
+  }
+
+  const payload = JSON.stringify({ session_id: trimmedSessionId });
+  const releaseUrl = new URL('/api/session/release', `${buildBackendOrigin()}/`).toString();
+
+  if (navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: 'application/json' });
+    navigator.sendBeacon(releaseUrl, blob);
+    return;
+  }
+
+  fetch(releaseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function stripReviewerTerminate(content = '') {
   return content
     .split('\n')
@@ -227,11 +250,19 @@ function App() {
   }, [logs]);
 
   useEffect(() => {
+    const handlePageHide = () => {
+      releaseSessionSilently(sessionIdRef.current);
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+
     return () => {
       const socket = socketRef.current;
       if (socket && socket.readyState < WebSocket.CLOSING) {
         socket.close();
       }
+      releaseSessionSilently(sessionIdRef.current);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, []);
 
@@ -284,6 +315,7 @@ function App() {
 
   function handleNewSession() {
     closeActiveSocket();
+    releaseSessionSilently(sessionIdRef.current);
 
     const nextSessionId = generateSessionId();
     sessionIdRef.current = nextSessionId;

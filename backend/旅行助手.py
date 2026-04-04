@@ -26,6 +26,7 @@ Agent 角色：
 """
 
 from dataclasses import dataclass
+from autogen_core import CancellationToken
 from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
 from autogen_ext.tools.mcp import StdioServerParams, mcp_server_tools
 from autogen_ext.models.openai import OpenAIChatCompletionClient
@@ -225,6 +226,29 @@ class TravelAssistantService:
         """初始化旅行助手服务的运行状态。"""
         self.team = None
         self.awaiting_user_feedback = False
+        self._active_cancellation_token: CancellationToken | None = None
+
+    def cancel_active_run(self):
+        """取消当前正在执行的团队运行。"""
+        if self._active_cancellation_token is not None:
+            self._active_cancellation_token.cancel()
+            self._active_cancellation_token = None
+
+    async def dispose(self):
+        """
+        释放当前 service 持有的团队状态，便于 session 被移除后尽快让对象可回收。
+        """
+        self.cancel_active_run()
+
+        if self.team is not None:
+            try:
+                await self.team.reset()
+            except RuntimeError:
+                # 如果团队仍处于运行中，reset 会失败；此时直接丢弃引用，避免 session 长驻内存。
+                pass
+
+        self.team = None
+        self.awaiting_user_feedback = False
 
     async def initialize(self):
         """初始化 MCP 工具并构建团队"""
@@ -366,10 +390,16 @@ class TravelAssistantService:
         if is_feedback and not self.awaiting_user_feedback:
             raise RuntimeError("当前没有待处理的方案反馈，请先生成并审核通过一版旅行方案。")
 
+        cancellation_token = CancellationToken()
+        self._active_cancellation_token = cancellation_token
         task = self._build_task(user_input, is_feedback) # 通过task区分首轮规划和反馈阶段的改稿，交给 Swarm 内部的 Agent 处理
-        result = await Console(self.team.run_stream(task=task))
-        async for msg in self.team.run_stream(task=task):
-            print(msg.type)
+        try:
+            result = await Console(self.team.run_stream(task=task, cancellation_token=cancellation_token))
+            async for msg in self.team.run_stream(task=task, cancellation_token=cancellation_token):
+                print(msg.type)
+        finally:
+            if self._active_cancellation_token is cancellation_token:
+                self._active_cancellation_token = None
         messages = getattr(result, "messages", [])
         run_result = self._build_run_result(messages)
         print(f"\n\n本轮返回结果（{run_result.conversation_status}）\n", run_result.reply)
@@ -397,61 +427,70 @@ class TravelAssistantService:
 
         task = self._build_task(user_input, is_feedback)
         run_messages = []
+        cancellation_token = CancellationToken()
+        self._active_cancellation_token = cancellation_token
 
         # 使用 async for 获取实时的流式反馈，让网页端实现真实"打字"和"思考"的过程
-        async for msg in self.team.run_stream(task=task):
-            source = getattr(msg, 'source', 'System')
+        try:
+            async for msg in self.team.run_stream(task=task, cancellation_token=cancellation_token):
+                source = getattr(msg, 'source', 'System')
 
-            # 拦截流式文本碎片
-            # 如果你的前端不需要“一个字一个字蹦出来”的打字机效果，必须在这里拦截掉！
-            # 否则它们全都会掉进 else 分支，导致前端收到几千条 [系统流转中] 消息。
-            if isinstance(msg, ModelClientStreamingChunkEvent):
-                continue  # 直接跳过，等待最后的完整 TextMessage/ThoughtEvent
+                # 拦截流式文本碎片
+                # 如果你的前端不需要“一个字一个字蹦出来”的打字机效果，必须在这里拦截掉！
+                # 否则它们全都会掉进 else 分支，导致前端收到几千条 [系统流转中] 消息。
+                if isinstance(msg, ModelClientStreamingChunkEvent):
+                    continue  # 直接跳过，等待最后的完整 TextMessage/ThoughtEvent
 
-            if hasattr(msg, "messages"):
-                run_messages = getattr(msg, "messages", []) or run_messages
-                continue
+                if hasattr(msg, "messages"):
+                    run_messages = getattr(msg, "messages", []) or run_messages
+                    continue
 
-            run_messages.append(msg)
+                run_messages.append(msg)
 
-            # TextMessage 和 ThoughtEvent
-            # 只要是有实质性内容的文本（无论是普通对话还是大模型的“思考”出的方案），都发给前端
-            if isinstance(msg, (TextMessage, ThoughtEvent)):
-                content = getattr(msg, 'content', '')
+                # TextMessage 和 ThoughtEvent
+                # 只要是有实质性内容的文本（无论是普通对话还是大模型的“思考”出的方案），都发给前端
+                if isinstance(msg, (TextMessage, ThoughtEvent)):
+                    content = getattr(msg, 'content', '')
 
-                # 增加判空：过滤掉纯粹为了调用工具而产生的“空文本消息”
-                if isinstance(content, str) and content.strip():
+                    # 增加判空：过滤掉纯粹为了调用工具而产生的“空文本消息”
+                    if isinstance(content, str) and content.strip():
+                        await websocket.send_json({
+                            "type": "message",
+                            "source": source,
+                            "content": content
+                        })
+                        
+                # 【维持原样】处理工具调用请求
+                elif isinstance(msg, ToolCallRequestEvent):
+                    # 调用了工具（例如正在查高德地图！）
+                    tools_used = ", ".join([call.name for call in msg.content])
                     await websocket.send_json({
-                        "type": "message",
+                        "type": "tool_call",
                         "source": source,
-                        "content": content
+                        "content": f"[系统日志] 正在调用外部工具: {tools_used} ..."
                     })
-                    
-            # 【维持原样】处理工具调用请求
-            elif isinstance(msg, ToolCallRequestEvent):
-                # 调用了工具（例如正在查高德地图！）
-                tools_used = ", ".join([call.name for call in msg.content])
-                await websocket.send_json({
-                    "type": "tool_call",
-                    "source": source,
-                    "content": f"[系统日志] 正在调用外部工具: {tools_used} ..."
-                })
 
-            elif isinstance(msg, HandoffMessage):
-                await websocket.send_json({
-                    "type": "info",
-                    "source": source,
-                    "content": f"[系统流转中] 已移交给 {msg.target}"
-                })
+                elif isinstance(msg, HandoffMessage):
+                    await websocket.send_json({
+                        "type": "info",
+                        "source": source,
+                        "content": f"[系统流转中] 已移交给 {msg.target}"
+                    })
 
-            # 【处理剩余的系统事件】
-            # 这里现在只会捕获 ToolCallExecutionEvent(工具执行结果) 等
-            else:
-                await websocket.send_json({
-                    "type": "info",
-                    "source": source,
-                    "content": f"[系统流转中] 动作: {type(msg).__name__}"
-                })
+                # 【处理剩余的系统事件】
+                # 这里现在只会捕获 ToolCallExecutionEvent(工具执行结果) 等
+                else:
+                    await websocket.send_json({
+                        "type": "info",
+                        "source": source,
+                        "content": f"[系统流转中] 动作: {type(msg).__name__}"
+                    })
+        except Exception:
+            self.cancel_active_run()
+            raise
+        finally:
+            if self._active_cancellation_token is cancellation_token:
+                self._active_cancellation_token = None
 
         return self._build_run_result(run_messages)
 

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
@@ -9,6 +10,26 @@ import json
 import uuid
 
 app = FastAPI(title="智能旅行助手 API")
+
+# 允许本机开发、局域网 IP 访问下的前端页面跨域调用后端接口。
+# 典型场景：
+# - React/Vite 开发服务器运行在 http://localhost:5173
+# - 同一局域网设备通过 http://192.168.x.x:5173 或 http://172.20.x.x:5173 访问前端
+# - 后端 API 运行在 8000 端口
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=(
+        r"^https?://("
+        r"localhost"
+        r"|127\.0\.0\.1"
+        r"|0\.0\.0\.0"
+        r"|(?:\d{1,3}\.){3}\d{1,3}"
+        r")(?::\d+)?$"
+    ),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class SessionStore:
@@ -56,6 +77,19 @@ class SessionStore:
         """
         async with self._lock:
             return self._sessions.get(session_id)
+
+    async def remove(self, session_id: str) -> bool:
+        """
+        删除指定 session 对应的 service，并尽量释放其内部状态。
+        """
+        async with self._lock:
+            service = self._sessions.pop(session_id, None)
+
+        if service is None:
+            return False
+
+        await service.dispose()
+        return True
 
 
 # 全局只保留“会话仓库”这一层单例，而不是保留单个旅行助手实例。
@@ -212,6 +246,16 @@ class FeedbackRequest(BaseModel):
     )
 
 
+class SessionReleaseRequest(BaseModel):
+    """前端显式通知后端释放某个 session。"""
+
+    session_id: str = Field(
+        ...,
+        min_length=1,
+        description="需要释放的会话 ID"
+    )
+
+
 def build_done_content(conversation_status: str) -> str:
     """根据会话状态生成前端展示的结束提示文案。"""
     if conversation_status == "awaiting_feedback":
@@ -255,6 +299,20 @@ async def get_session_assistant(session_id: str, allow_create: bool) -> TravelAs
             f"未找到 session_id={session_id} 对应的会话。请先用同一个 session_id 发起首轮规划。"
         )
     return assistant
+
+
+async def release_session(session_id: Optional[str]) -> bool:
+    """
+    释放指定 session 的内存态 service。
+    """
+    cleaned_session_id = (session_id or "").strip()
+    if not cleaned_session_id:
+        return False
+
+    released = await session_store.remove(cleaned_session_id)
+    if released:
+        print(f"已释放会话资源，session_id={cleaned_session_id}")
+    return released
 
 
 def get_ws_test_page_response() -> FileResponse:
@@ -383,11 +441,27 @@ async def submit_travel_plan_feedback(request: FeedbackRequest):
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if result.conversation_status == "terminated":
+        await release_session(session_id)
+
     return {
         "status": "success",
         "session_id": session_id,
         "reply": result.reply,
         "conversation_status": result.conversation_status,
+    }
+
+
+@app.post("/api/session/release")
+async def release_travel_session(request: SessionReleaseRequest):
+    """
+    前端在页面关闭或显式放弃当前会话时，通知后端释放对应 session。
+    """
+    released = await release_session(request.session_id)
+    return {
+        "status": "success",
+        "session_id": request.session_id,
+        "released": released,
     }
 
 
@@ -448,6 +522,7 @@ async def websocket_plan(websocket: WebSocket):
         })
     except WebSocketDisconnect:
         print("WebSocket 已经断开连接")
+        await release_session(session_id)
 
 
 @app.websocket("/ws/plan/feedback")
@@ -526,5 +601,9 @@ async def websocket_plan_feedback(websocket: WebSocket):
             "conversation_status": result.conversation_status,
             "content": build_done_content(result.conversation_status)
         })
+
+        if result.conversation_status == "terminated":
+            await release_session(session_id)
     except WebSocketDisconnect:
         print("反馈 WebSocket 已经断开连接")
+        await release_session(session_id)

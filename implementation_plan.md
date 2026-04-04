@@ -9,7 +9,7 @@
 ### 1. 后端 (Backend): FastAPI (Python)
 - **为什么选它**：你的 AI Agent 逻辑（AutoGen, MCP）是基于 Python 的，且重度依赖异步（`asyncio`）。**FastAPI** 完美支持异步计算，性能极高，同时自带自动化的接口文档（Swagger UI）。
 - **主要工作**：将 `旅行助手.py` 从 CLI 脚本重构为一个模块，通过 HTTP 接口或 WebSocket 暴露服务。
-- 启动命令：uvicorn app:app --reload --port 8000
+- 启动命令：uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 ### 2. 前端 (Frontend): React + Vite (Web App)
 - **为什么选它**：React 是目前应用最广的前端框架，Vite 则是当前最流行、超快速的构建工具。它们组合能让你快速掌握现代前端开发范型（组件化、状态管理、Hooks）。

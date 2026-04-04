@@ -858,6 +858,29 @@
             return wsProtocol + "//" + window.location.host;
         }
 
+        function releaseSessionSilently(sessionId) {
+            var trimmedSessionId = (sessionId || "").trim();
+            if (!trimmedSessionId) {
+                return;
+            }
+
+            var payload = JSON.stringify({ session_id: trimmedSessionId });
+            var releaseUrl = window.location.origin + "/api/session/release";
+
+            if (navigator.sendBeacon) {
+                var blob = new Blob([payload], { type: "application/json" });
+                navigator.sendBeacon(releaseUrl, blob);
+                return;
+            }
+
+            fetch(releaseUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: payload,
+                keepalive: true
+            }).catch(function () {});
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // 初始化出发行程日历
             flatpickr("#start_date", {
@@ -880,6 +903,10 @@
             setFeedbackEnabled(false);
             appendMsg("🧭 当前测试会话 session_id: " + currentSessionId, "info");
             appendMsg("🌐 当前页面访问地址: " + window.location.origin, "info");
+        });
+
+        window.addEventListener("pagehide", function () {
+            releaseSessionSilently(currentSessionId);
         });
 
         function applyDefaultTestValues() {
@@ -961,6 +988,7 @@
 
         function startNewSession() {
             closeActiveSocket();
+            releaseSessionSilently(currentSessionId);
             conversationStatus = "idle";
             currentRound = 0;
             latestPlannerReply = "";
