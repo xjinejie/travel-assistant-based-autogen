@@ -48,19 +48,19 @@ dotenv.load_dotenv()
 # 模型客户端配置
 # ──────────────────────────────────────
 
-gemini_client = OpenAIChatCompletionClient(
-    model=os.getenv("GEMINI_MODEL_NAME"),
-    base_url=os.getenv("GEMINI_BASE_URL"),
-    api_key=os.getenv("GEMINI_API_KEY"),
-    parallel_tool_calls=False,
-    model_info={
-        "vision": False,
-        "function_calling": True,
-        "json_output": True,
-        "family": "gemini",
-        "structured_output": True,
-    },
-)
+# gemini_client = OpenAIChatCompletionClient(
+#     model=os.getenv("GEMINI_MODEL_NAME"),
+#     base_url=os.getenv("GEMINI_BASE_URL"),
+#     api_key=os.getenv("GEMINI_API_KEY"),
+#     parallel_tool_calls=False,
+#     model_info={
+#         "vision": False,
+#         "function_calling": True,
+#         "json_output": True,
+#         "family": "gemini",
+#         "structured_output": True,
+#     },
+# )
 
 deepseek_client = OpenAIChatCompletionClient(
     model=os.getenv("DEEPSEEK_MODEL_NAME"),
