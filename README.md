@@ -1,4 +1,4 @@
-# 智能旅行助手全栈改造与学习计划
+# 智能旅行助手全栈学习实践
 
 基于你现有的基于 AutoGen Swarm 的 Python 命令行脚本，将其改造成一个具备现代化 UI 和实时交互能力的全栈 Web 应用，是一个绝佳的边做边学（Learning by Doing）项目。
 
@@ -9,12 +9,14 @@
 ### 1. 后端 (Backend): FastAPI (Python)
 - **为什么选它**：你的 AI Agent 逻辑（AutoGen, MCP）是基于 Python 的，且重度依赖异步（`asyncio`）。**FastAPI** 完美支持异步计算，性能极高，同时自带自动化的接口文档（Swagger UI）。
 - **主要工作**：将 `旅行助手.py` 从 CLI 脚本重构为一个模块，通过 HTTP 接口或 WebSocket 暴露服务。
+- cd backend
 - 启动命令：uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 ### 2. 前端 (Frontend): React + Vite (Web App)
 - **为什么选它**：React 是目前应用最广的前端框架，Vite 则是当前最流行、超快速的构建工具。它们组合能让你快速掌握现代前端开发范型（组件化、状态管理、Hooks）。
 - **样式方案**：**纯 Vanilla CSS (原生 CSS)**。注重掌握现代 Web 美学设计（毛玻璃效果、微动画、丝滑渐变）。
 - **主要工作**：构建丝滑的聊天界面交互，解析并渲染来自后端的 Markdown 旅行方案。
+- cd frontend
 - 启动命令：npm run dev -- --host 0.0.0.0 --port 5173
 
 ### 3. 通信协议: WebSocket 
@@ -95,3 +97,8 @@ npm install
 7. .env 配置
 需要配置DEEPSEEK_MODEL_NAME;DEEPSEEK_API_KEY;DEEPSEEK_BASE_URL;AMAP_MAPS_API_KEY(高德地图web服务API Key)
 
+## 效果展示
+
+![前端效果图1](graphs/frontend1.png)
+
+![前端效果图2](graphs/frontend2.png)
