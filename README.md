@@ -1,7 +1,6 @@
 # 智能旅行助手全栈学习实践
 
-基于 AutoGen Swarm 的 Python 命令行脚本，实现的多智能体系统，并将其改造成一个具备现代化 UI 和实时交互能力的全栈 Web 应用，是一个绝佳的边做边学（Learning by Doing）项目。
-
+基于 AutoGen Swarm 的 Python 命令行脚本，实现的多智能体系统，并将其改造成一个具备现代化 UI 和实时交互能力的全栈 Web 应用。
 - planner：负责根据用户输入的旅行需求，调用高德mcp服务，规划出一个合理的旅行方案。
 - reviewer：负责审查 planner 的输出，确保方案的合理性和可行性，同时负责和接受用户反馈，进行方案的迭代优化。
 - userproxyagent:负责与用户进行交互，收集用户的反馈和需求，并将其传递给reviewer。
